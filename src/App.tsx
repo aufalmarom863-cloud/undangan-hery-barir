@@ -223,6 +223,10 @@ export default function App() {
   const [rsvpError, setRsvpError] = useState("")
 
   useEffect(() => {
+    document.title = "Wedding Hery & Barir"
+  }, [])
+
+  useEffect(() => {
     if (guestName && guestName !== "Tamu Undangan") {
       setRsvpName((prev) => (!prev ? guestName : prev))
     }
