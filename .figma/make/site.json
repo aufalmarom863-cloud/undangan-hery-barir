@@ -1,0 +1,10 @@
+{
+  "description": "Web undangan pernikahan digital untuk pasangan, menampilkan detail acara dan informasi penting agar tamu dapat mengakses undangan dengan mudah.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
