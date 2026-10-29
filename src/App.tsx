@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { type FormEvent, useEffect, useState } from "react"
 
 const weddingDate = new Date("2026-12-05T08:00:00+07:00")
 const mapsUrl = "https://maps.app.goo.gl/RUE7vcRpxLF5Du1c9?g_st=aw"
@@ -103,8 +103,232 @@ function Countdown() {
   )
 }
 
+function getInitialGuestName(): string {
+  if (typeof window !== "undefined") {
+    try {
+      const params = new URLSearchParams(window.location.search)
+      const paramName =
+        params.get("to") ||
+        params.get("guest") ||
+        params.get("nama") ||
+        params.get("u")
+      if (paramName && paramName.trim()) {
+        return paramName.trim()
+      }
+      const stored = localStorage.getItem("wedding_guest_name")
+      if (stored && stored.trim()) {
+        return stored.trim()
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return "Tamu Undangan"
+}
+
+type RSVPStatus = "hadir" | "tidak_hadir" | "ragu"
+
+type WishItem = {
+  id: string
+  name: string
+  status: RSVPStatus
+  message: string
+  createdAt: number
+}
+
+const defaultWishes: WishItem[] = [
+  {
+    id: "w-1",
+    name: "Ahmad Fauzi & Keluarga",
+    status: "hadir",
+    message:
+      "Selamat menempuh hidup baru Mas Hery & Mbak Barir! Semoga menjadi keluarga yang sakinah mawaddah warahmah, senantiasa dilimpahkan berkah dan kebahagiaan.",
+    createdAt: Date.now() - 1000 * 60 * 60 * 24,
+  },
+  {
+    id: "w-2",
+    name: "Aufal Marom",
+    status: "hadir",
+    message:
+      "Barakallahu laka wa baraka 'alaika wa jama'a bainakuma fii khoir. Selamat berbahagia Hery & Barir! Insya Allah kami sekeluarga hadir merayakan hari bahagia ini.",
+    createdAt: Date.now() - 1000 * 60 * 60 * 10,
+  },
+  {
+    id: "w-3",
+    name: "Rina Kusuma",
+    status: "tidak_hadir",
+    message:
+      "Selamat untuk Hery dan Barir! Mohon maaf sekali belum bisa hadir langsung karena dinas luar kota, tapi doa tulus senantiasa mengalir untuk kelancaran acaranya.",
+    createdAt: Date.now() - 1000 * 60 * 60 * 5,
+  },
+  {
+    id: "w-4",
+    name: "Dimas Aditya",
+    status: "hadir",
+    message:
+      "Selamat brader Hery & Barir! Lancar acaranya dari akad sampai resepsi. Semoga langgeng till jannah!",
+    createdAt: Date.now() - 1000 * 60 * 45,
+  },
+]
+
+function getInitialWishes(): WishItem[] {
+  if (typeof window !== "undefined") {
+    try {
+      const stored = localStorage.getItem("wedding_rsvp_wishes")
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return defaultWishes
+}
+
+function formatRelativeTime(timestamp: number): string {
+  const diffMs = Date.now() - timestamp
+  const diffMins = Math.floor(diffMs / 60000)
+  if (diffMins < 1) return "Baru saja"
+  if (diffMins < 60) return `${diffMins} menit lalu`
+  const diffHours = Math.floor(diffMins / 60)
+  if (diffHours < 24) return `${diffHours} jam lalu`
+  const diffDays = Math.floor(diffHours / 24)
+  if (diffDays === 1) return "Kemarin"
+  if (diffDays < 7) return `${diffDays} hari lalu`
+  return new Date(timestamp).toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  })
+}
+
 export default function App() {
   const [opened, setOpened] = useState(false)
+  const [guestName, setGuestName] = useState(getInitialGuestName)
+  const [isEditingGuest, setIsEditingGuest] = useState(false)
+  const [tempGuestName, setTempGuestName] = useState(guestName)
+  const [copiedLink, setCopiedLink] = useState(false)
+
+  // RSVP Form state
+  const [wishes, setWishes] = useState<WishItem[]>(getInitialWishes)
+  const [rsvpName, setRsvpName] = useState(() =>
+    guestName !== "Tamu Undangan" ? guestName : "",
+  )
+  const [rsvpStatus, setRsvpStatus] = useState<RSVPStatus | "">("")
+  const [rsvpMessage, setRsvpMessage] = useState("")
+  const [rsvpSuccess, setRsvpSuccess] = useState(false)
+  const [rsvpError, setRsvpError] = useState("")
+
+  useEffect(() => {
+    if (guestName && guestName !== "Tamu Undangan") {
+      setRsvpName((prev) => (!prev ? guestName : prev))
+    }
+  }, [guestName])
+
+  const handleRSVPSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setRsvpError("")
+
+    if (!rsvpName.trim()) {
+      setRsvpError("Mohon masukkan nama lengkap Anda.")
+      return
+    }
+    if (!rsvpStatus) {
+      setRsvpError("Mohon pilih status kehadiran Anda.")
+      return
+    }
+
+    const newWish: WishItem = {
+      id: "wish-" + Date.now(),
+      name: rsvpName.trim(),
+      status: rsvpStatus as RSVPStatus,
+      message: rsvpMessage.trim(),
+      createdAt: Date.now(),
+    }
+
+    const updated = [newWish, ...wishes]
+    setWishes(updated)
+    try {
+      localStorage.setItem("wedding_rsvp_wishes", JSON.stringify(updated))
+    } catch {
+      // Ignore storage errors
+    }
+
+    setRsvpSuccess(true)
+    setRsvpMessage("")
+    setRsvpStatus("")
+    setTimeout(() => {
+      setRsvpSuccess(false)
+    }, 5000)
+  }
+
+  const handleSaveGuestName = () => {
+    const trimmed = tempGuestName.trim()
+    const finalName = trimmed || "Tamu Undangan"
+    setGuestName(finalName)
+    setIsEditingGuest(false)
+
+    try {
+      localStorage.setItem("wedding_guest_name", finalName)
+      const url = new URL(window.location.href)
+      if (trimmed) {
+        url.searchParams.set("to", trimmed)
+      } else {
+        url.searchParams.delete("to")
+        url.searchParams.delete("guest")
+        url.searchParams.delete("nama")
+        url.searchParams.delete("u")
+      }
+      window.history.replaceState({}, "", url.toString())
+    } catch {
+      // ignore
+    }
+  }
+
+  const handleCancelGuestEdit = () => {
+    setTempGuestName(guestName)
+    setIsEditingGuest(false)
+  }
+
+  const handleCopyShareLink = async () => {
+    try {
+      const url = new URL(window.location.href)
+      if (guestName && guestName !== "Tamu Undangan") {
+        url.searchParams.set("to", guestName)
+      } else {
+        url.searchParams.delete("to")
+        url.searchParams.delete("guest")
+        url.searchParams.delete("nama")
+        url.searchParams.delete("u")
+      }
+      const shareUrl = url.toString()
+
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(shareUrl)
+        setCopiedLink(true)
+        setTimeout(() => setCopiedLink(false), 2500)
+        return
+      }
+
+      const textArea = document.createElement("textarea")
+      textArea.value = shareUrl
+      textArea.style.position = "fixed"
+      textArea.style.left = "-999999px"
+      textArea.style.top = "-999999px"
+      document.body.appendChild(textArea)
+      textArea.focus()
+      textArea.select()
+      document.execCommand("copy")
+      document.body.removeChild(textArea)
+      setCopiedLink(true)
+      setTimeout(() => setCopiedLink(false), 2500)
+    } catch {
+      // ignore
+    }
+  }
 
   return (
     <main className="site-shell">
@@ -119,9 +343,116 @@ export default function App() {
             </h1>
             <p className="cover-date">05 . 12 . 2026</p>
             <div className="cover-divider" />
-            <p className="guest-label">Kepada Bapak/Ibu/Saudara/i</p>
-            <p className="guest-name">Tamu Undangan</p>
-            <button type="button" onClick={() => setOpened(true)}>
+
+            <div className="guest-section">
+              <p className="guest-label">Kepada Yth. Bapak/Ibu/Saudara/i:</p>
+
+              {isEditingGuest ? (
+                <form
+                  className="guest-edit-form"
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    handleSaveGuestName()
+                  }}
+                >
+                  <div className="guest-input-wrap">
+                    <input
+                      type="text"
+                      className="guest-input"
+                      value={tempGuestName}
+                      onChange={(e) => setTempGuestName(e.target.value)}
+                      placeholder="Ketik Nama Tamu Undangan..."
+                      autoFocus
+                      maxLength={60}
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") {
+                          handleCancelGuestEdit()
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="guest-edit-actions">
+                    <button type="submit" className="guest-btn-save">
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                      Simpan
+                    </button>
+                    <button
+                      type="button"
+                      className="guest-btn-cancel"
+                      onClick={handleCancelGuestEdit}
+                    >
+                      Batal
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div className="guest-display">
+                  <div className="guest-badge">
+                    <span className="guest-name">{guestName}</span>
+                    <button
+                      type="button"
+                      className="guest-edit-trigger"
+                      onClick={() => {
+                        setTempGuestName(
+                          guestName === "Tamu Undangan" ? "" : guestName,
+                        )
+                        setIsEditingGuest(true)
+                      }}
+                      title="Ubah nama tamu undangan"
+                      aria-label="Edit nama tamu"
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+                      </svg>
+                      <span>Edit Nama</span>
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="guest-share-btn"
+                    onClick={handleCopyShareLink}
+                    title="Salin link undangan khusus tamu ini"
+                  >
+                    {copiedLink ? (
+                      <>
+                        <svg
+                          viewBox="0 0 24 24"
+                          aria-hidden="true"
+                          className="success-icon"
+                        >
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                        <span>Link Khusus Tamu Tersalin!</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <rect
+                            x="9"
+                            y="9"
+                            width="13"
+                            height="13"
+                            rx="2"
+                            ry="2"
+                          />
+                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                        </svg>
+                        <span>Salin Link untuk Tamu Ini</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <button
+              type="button"
+              className="open-invitation-btn"
+              onClick={() => setOpened(true)}
+            >
               Buka Undangan
             </button>
           </div>
@@ -138,6 +469,11 @@ export default function App() {
               Hery <span>&amp;</span> Barir
             </h2>
             <p className="hero-date">Sabtu, 05 Desember 2026</p>
+            {guestName && guestName !== "Tamu Undangan" && (
+              <p className="hero-for-guest">
+                Kepada Yth. <span>{guestName}</span>
+              </p>
+            )}
           </div>
         </div>
         <a
@@ -277,18 +613,254 @@ export default function App() {
         </div>
       </section>
 
+      <section className="rsvp-section section" id="rsvp">
+        <div className="rsvp-container">
+          <div className="rsvp-header">
+            <h2 className="rsvp-title">
+              KONFIRMASI KEHADIRAN
+              <span>&amp; UCAPAN</span>
+            </h2>
+            <p className="rsvp-subtitle">
+              Mohon mengisi form di bawah ini untuk konfirmasi kehadiran
+              sekaligus menyampaikan ucapan Anda.
+            </p>
+          </div>
+
+          <div className="rsvp-card">
+            <form onSubmit={handleRSVPSubmit} className="rsvp-form">
+              {/* Nama Lengkap */}
+              <div className="rsvp-field">
+                <div className="rsvp-label-row">
+                  <label htmlFor="rsvp-name" className="rsvp-label">
+                    Nama Lengkap <span className="required-star">*</span>
+                  </label>
+                  <span className="rsvp-counter">({rsvpName.length}/100)</span>
+                </div>
+                <input
+                  id="rsvp-name"
+                  type="text"
+                  value={rsvpName}
+                  onChange={(e) => setRsvpName(e.target.value.slice(0, 100))}
+                  placeholder="Ketik nama lengkap Anda..."
+                  className="rsvp-input"
+                  required
+                />
+              </div>
+
+              {/* Status Kehadiran */}
+              <div className="rsvp-field">
+                <div className="rsvp-label-row">
+                  <label htmlFor="rsvp-status" className="rsvp-label">
+                    Status Kehadiran <span className="required-star">*</span>
+                  </label>
+                </div>
+                <div className="rsvp-select-wrap">
+                  <select
+                    id="rsvp-status"
+                    value={rsvpStatus}
+                    onChange={(e) =>
+                      setRsvpStatus(e.target.value as RSVPStatus)
+                    }
+                    className="rsvp-select"
+                    required
+                  >
+                    <option value="" disabled>
+                      Pilih status kehadiran
+                    </option>
+                    <option value="hadir">Hadir</option>
+                    <option value="tidak_hadir">Tidak Hadir</option>
+                    <option value="ragu">Masih Ragu / Belum Pasti</option>
+                  </select>
+                  <svg
+                    className="rsvp-select-arrow"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    aria-hidden="true"
+                  >
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </div>
+              </div>
+
+              {/* Ucapan/Pesan */}
+              <div className="rsvp-field">
+                <div className="rsvp-label-row">
+                  <label htmlFor="rsvp-message" className="rsvp-label">
+                    Ucapan/Pesan
+                  </label>
+                  <span className="rsvp-counter">
+                    ({rsvpMessage.length}/500)
+                  </span>
+                </div>
+                <textarea
+                  id="rsvp-message"
+                  rows={4}
+                  value={rsvpMessage}
+                  onChange={(e) => setRsvpMessage(e.target.value.slice(0, 500))}
+                  placeholder="Tulis ucapan atau pesan Anda..."
+                  className="rsvp-textarea"
+                />
+              </div>
+
+              {rsvpError && <p className="rsvp-error-msg">{rsvpError}</p>}
+              {rsvpSuccess && (
+                <div className="rsvp-success-msg">
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="18"
+                    height="18"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  <span>
+                    Terima kasih! Konfirmasi kehadiran dan ucapan Anda telah
+                    berhasil dikirim.
+                  </span>
+                </div>
+              )}
+
+              <div className="rsvp-btn-row">
+                <button type="submit" className="rsvp-submit-btn">
+                  Kirim Konfirmasi
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Stats Bar */}
+          <div className="rsvp-stats">
+            <div className="rsvp-stat-box">
+              <div className="rsvp-stat-number">{wishes.length}</div>
+              <div className="rsvp-stat-label">Total Ucapan</div>
+            </div>
+            <div className="rsvp-stat-box">
+              <div className="rsvp-stat-number" style={{ color: "#2e7d32" }}>
+                {wishes.filter((w) => w.status === "hadir").length}
+              </div>
+              <div className="rsvp-stat-label">Hadir</div>
+            </div>
+            <div className="rsvp-stat-box">
+              <div className="rsvp-stat-number" style={{ color: "#c62828" }}>
+                {wishes.filter((w) => w.status === "tidak_hadir").length}
+              </div>
+              <div className="rsvp-stat-label">Tidak Hadir</div>
+            </div>
+          </div>
+
+          {/* Wishes Feed */}
+          <div className="wishes-container">
+            <div className="wishes-heading">
+              <h3>Ucapan &amp; Doa Restu</h3>
+              <span className="wishes-count">{wishes.length} Ucapan</span>
+            </div>
+
+            <div className="wishes-feed">
+              {wishes.map((item) => (
+                <article key={item.id} className="wish-item">
+                  <div className="wish-header">
+                    <div className="wish-avatar">
+                      {(item.name?.trim()?.charAt(0) || "?").toUpperCase()}
+                    </div>
+                    <div className="wish-meta">
+                      <div className="wish-name-row">
+                        <span className="wish-name">{item.name}</span>
+                        {item.status === "hadir" && (
+                          <span className="badge-hadir">
+                            <svg
+                              viewBox="0 0 24 24"
+                              width="11"
+                              height="11"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="3"
+                              aria-hidden="true"
+                            >
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                            Hadir
+                          </span>
+                        )}
+                        {item.status === "tidak_hadir" && (
+                          <span className="badge-tidak-hadir">
+                            <svg
+                              viewBox="0 0 24 24"
+                              width="11"
+                              height="11"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="3"
+                              aria-hidden="true"
+                            >
+                              <line x1="18" y1="6" x2="6" y2="18" />
+                              <line x1="6" y1="6" x2="18" y2="18" />
+                            </svg>
+                            Tidak Hadir
+                          </span>
+                        )}
+                        {item.status === "ragu" && (
+                          <span className="badge-ragu">Belum Pasti</span>
+                        )}
+                      </div>
+                      <span className="wish-time">
+                        {formatRelativeTime(item.createdAt)}
+                      </span>
+                    </div>
+                  </div>
+                  {item.message && (
+                    <p className="wish-message">{item.message}</p>
+                  )}
+                </article>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
       <footer>
         <LeafBranch className="footer-leaf footer-leaf-left" />
         <LeafBranch className="footer-leaf footer-leaf-right" flip />
         <p className="eyebrow">Terima Kasih</p>
         <p className="footer-copy">
-          Merupakan suatu kehormatan dan kebahagiaan bagi kami apabila
-          Bapak/Ibu/Saudara/i berkenan hadir untuk memberikan doa restu.
+          Merupakan suatu kehormatan dan kebahagiaan bagi kami apabila{" "}
+          {guestName && guestName !== "Tamu Undangan" ? (
+            <>
+              Bapak/Ibu/Saudara/i <strong>{guestName}</strong>
+            </>
+          ) : (
+            "Bapak/Ibu/Saudara/i"
+          )}{" "}
+          berkenan hadir untuk memberikan doa restu.
         </p>
         <p>Kami yang berbahagia,</p>
         <h2>Hery &amp; Barir</h2>
         <p className="family">Segenap Keluarga</p>
       </footer>
+
+      {opened && (
+        <button
+          type="button"
+          className="back-to-cover-btn"
+          onClick={() => {
+            window.scrollTo({ top: 0, behavior: "smooth" })
+            setOpened(false)
+          }}
+          title="Kembali ke halaman sampul"
+          aria-label="Kembali ke halaman sampul"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M19 12H5M12 19l-7-7 7-7" />
+          </svg>
+          <span>Sampul</span>
+        </button>
+      )}
     </main>
   )
 }
