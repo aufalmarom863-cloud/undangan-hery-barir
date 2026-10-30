@@ -167,6 +167,19 @@ footer h2 {
   background: rgb(215 196 166 / 35%);
 }
 
+.guest-badge-recipient {
+  padding: 0.55rem 1.8rem;
+  background: rgb(215 196 166 / 26%);
+  border-color: rgb(169 132 102 / 50%);
+  box-shadow: 0 3px 12px rgb(98 73 57 / 8%);
+  cursor: default;
+}
+
+.guest-badge-recipient:hover {
+  border-color: rgb(169 132 102 / 50%);
+  background: rgb(215 196 166 / 26%);
+}
+
 .guest-name {
   color: var(--brown);
   font-family: 'Cormorant Garamond', serif;

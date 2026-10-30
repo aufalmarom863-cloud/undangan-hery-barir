@@ -126,6 +126,28 @@ function getInitialGuestName(): string {
   return "Tamu Undangan"
 }
 
+function checkIsGuestRecipient(): boolean {
+  if (typeof window !== "undefined") {
+    try {
+      const params = new URLSearchParams(window.location.search)
+      const hasGuestParam = Boolean(
+        params.get("to") ||
+          params.get("guest") ||
+          params.get("nama") ||
+          params.get("u"),
+      )
+      const isAdmin =
+        params.get("admin") === "1" ||
+        params.get("admin") === "true" ||
+        params.get("edit") === "1"
+      return hasGuestParam && !isAdmin
+    } catch {
+      // ignore
+    }
+  }
+  return false
+}
+
 type RSVPStatus = "hadir" | "tidak_hadir" | "ragu"
 
 type WishItem = {
@@ -208,6 +230,7 @@ function formatRelativeTime(timestamp: number): string {
 export default function App() {
   const [opened, setOpened] = useState(false)
   const [guestName, setGuestName] = useState(getInitialGuestName)
+  const [isGuestRecipient] = useState(checkIsGuestRecipient)
   const [isEditingGuest, setIsEditingGuest] = useState(false)
   const [tempGuestName, setTempGuestName] = useState(guestName)
   const [copiedLink, setCopiedLink] = useState(false)
@@ -351,7 +374,7 @@ export default function App() {
             <div className="guest-section">
               <p className="guest-label">Kepada Yth. Bapak/Ibu/Saudara/i:</p>
 
-              {isEditingGuest ? (
+              {isEditingGuest && !isGuestRecipient ? (
                 <form
                   className="guest-edit-form"
                   onSubmit={(e) => {
@@ -393,61 +416,69 @@ export default function App() {
                 </form>
               ) : (
                 <div className="guest-display">
-                  <div className="guest-badge">
+                  <div
+                    className={`guest-badge ${
+                      isGuestRecipient ? "guest-badge-recipient" : ""
+                    }`}
+                  >
                     <span className="guest-name">{guestName}</span>
-                    <button
-                      type="button"
-                      className="guest-edit-trigger"
-                      onClick={() => {
-                        setTempGuestName(
-                          guestName === "Tamu Undangan" ? "" : guestName,
-                        )
-                        setIsEditingGuest(true)
-                      }}
-                      title="Ubah nama tamu undangan"
-                      aria-label="Edit nama tamu"
-                    >
-                      <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
-                      </svg>
-                      <span>Edit Nama</span>
-                    </button>
+                    {!isGuestRecipient && (
+                      <button
+                        type="button"
+                        className="guest-edit-trigger"
+                        onClick={() => {
+                          setTempGuestName(
+                            guestName === "Tamu Undangan" ? "" : guestName,
+                          )
+                          setIsEditingGuest(true)
+                        }}
+                        title="Ubah nama tamu undangan"
+                        aria-label="Edit nama tamu"
+                      >
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+                        </svg>
+                        <span>Edit Nama</span>
+                      </button>
+                    )}
                   </div>
 
-                  <button
-                    type="button"
-                    className="guest-share-btn"
-                    onClick={handleCopyShareLink}
-                    title="Salin link undangan khusus tamu ini"
-                  >
-                    {copiedLink ? (
-                      <>
-                        <svg
-                          viewBox="0 0 24 24"
-                          aria-hidden="true"
-                          className="success-icon"
-                        >
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                        <span>Link Khusus Tamu Tersalin!</span>
-                      </>
-                    ) : (
-                      <>
-                        <svg viewBox="0 0 24 24" aria-hidden="true">
-                          <rect
-                            x="9"
-                            y="9"
-                            width="13"
-                            height="13"
-                            rx="2"
-                            ry="2"
-                          />
-                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                        </svg>
-                        <span>Salin Link untuk Tamu Ini</span>
-                      </>
-                    )}
-                  </button>
+                  {!isGuestRecipient && (
+                    <button
+                      type="button"
+                      className="guest-share-btn"
+                      onClick={handleCopyShareLink}
+                      title="Salin link undangan khusus tamu ini"
+                    >
+                      {copiedLink ? (
+                        <>
+                          <svg
+                            viewBox="0 0 24 24"
+                            aria-hidden="true"
+                            className="success-icon"
+                          >
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                          <span>Link Khusus Tamu Tersalin!</span>
+                        </>
+                      ) : (
+                        <>
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <rect
+                              x="9"
+                              y="9"
+                              width="13"
+                              height="13"
+                              rx="2"
+                              ry="2"
+                            />
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                          </svg>
+                          <span>Salin Link untuk Tamu Ini</span>
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
               )}
             </div>
